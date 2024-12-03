@@ -225,7 +225,7 @@ impl Encoder {
             check(sys::aacEncoder_SetParam(
                 handle.ptr,
                 sys::AACENC_PARAM_AACENC_SBR_MODE,
-                1,
+                0,
             ))?;
             check(sys::aacEncoder_SetParam(
                 handle.ptr,
