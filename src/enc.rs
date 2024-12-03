@@ -1,7 +1,7 @@
 use std::cmp;
-use std::fmt::{self, Display, Debug};
+use std::fmt::{self, Debug, Display};
 use std::mem::{self, MaybeUninit};
-use std::os::raw::{c_void, c_uint, c_int};
+use std::os::raw::{c_int, c_uint, c_void};
 use std::ptr;
 
 use fdk_aac_sys as sys;
@@ -14,7 +14,9 @@ impl EncoderError {
     fn message(&self) -> &'static str {
         match self.0 {
             sys::AACENC_ERROR_AACENC_OK => "Ok",
-            sys::AACENC_ERROR_AACENC_INVALID_HANDLE => "Handle passed to function call was invalid.",
+            sys::AACENC_ERROR_AACENC_INVALID_HANDLE => {
+                "Handle passed to function call was invalid."
+            }
             sys::AACENC_ERROR_AACENC_MEMORY_ERROR => "Memory allocation failed.",
             sys::AACENC_ERROR_AACENC_UNSUPPORTED_PARAMETER => "Parameter not available.",
             sys::AACENC_ERROR_AACENC_INVALID_CONFIG => "Configuration not provided.",
@@ -24,7 +26,9 @@ impl EncoderError {
             sys::AACENC_ERROR_AACENC_INIT_TP_ERROR => "Transport library initialization error.",
             sys::AACENC_ERROR_AACENC_INIT_META_ERROR => "Meta data library initialization error.",
             sys::AACENC_ERROR_AACENC_INIT_MPS_ERROR => "MPS library initialization error.",
-            sys::AACENC_ERROR_AACENC_ENCODE_ERROR => "The encoding process was interrupted by an unexpected error.",
+            sys::AACENC_ERROR_AACENC_ENCODE_ERROR => {
+                "The encoding process was interrupted by an unexpected error."
+            }
             sys::AACENC_ERROR_AACENC_ENCODE_EOF => "End of file reached.",
             _ => "Unknown error",
         }
@@ -33,7 +37,12 @@ impl EncoderError {
 
 impl Debug for EncoderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "EncoderError {{ code: {:?}, message: {:?} }}", self.0 as c_int, self.message())
+        write!(
+            f,
+            "EncoderError {{ code: {:?}, message: {:?} }}",
+            self.0 as c_int,
+            self.message()
+        )
     }
 }
 
@@ -62,7 +71,11 @@ impl EncoderHandle {
     pub fn alloc(max_modules: usize, max_channels: usize) -> Result<Self, EncoderError> {
         let mut ptr: sys::HANDLE_AACENCODER = ptr::null_mut();
         check(unsafe {
-            sys::aacEncOpen(&mut ptr as *mut _, max_modules as c_uint, max_channels as c_uint)
+            sys::aacEncOpen(
+                &mut ptr as *mut _,
+                max_modules as c_uint,
+                max_channels as c_uint,
+            )
         })?;
         Ok(EncoderHandle { ptr })
     }
@@ -70,7 +83,9 @@ impl EncoderHandle {
 
 impl Drop for EncoderHandle {
     fn drop(&mut self) {
-        unsafe { sys::aacEncClose(&mut self.ptr as *mut _); }
+        unsafe {
+            sys::aacEncClose(&mut self.ptr as *mut _);
+        }
     }
 }
 
@@ -163,11 +178,19 @@ impl Encoder {
                 AudioObjectType::Mpeg2HeAac => sys::AUDIO_OBJECT_TYPE_AOT_MP2_SBR,
             };
 
-            check(sys::aacEncoder_SetParam(handle.ptr, sys::AACENC_PARAM_AACENC_AOT, aot as u32))?;
+            check(sys::aacEncoder_SetParam(
+                handle.ptr,
+                sys::AACENC_PARAM_AACENC_AOT,
+                aot as u32,
+            ))?;
 
             let bitrate_mode = match params.bit_rate {
                 BitRate::Cbr(bitrate) => {
-                    check(sys::aacEncoder_SetParam(handle.ptr, sys::AACENC_PARAM_AACENC_BITRATE, bitrate))?;
+                    check(sys::aacEncoder_SetParam(
+                        handle.ptr,
+                        sys::AACENC_PARAM_AACENC_BITRATE,
+                        bitrate,
+                    ))?;
                     0
                 }
                 BitRate::VbrVeryLow => 1,
@@ -177,18 +200,33 @@ impl Encoder {
                 BitRate::VbrVeryHigh => 5,
             };
 
-            check(sys::aacEncoder_SetParam(handle.ptr, sys::AACENC_PARAM_AACENC_BITRATEMODE, bitrate_mode))?;
+            check(sys::aacEncoder_SetParam(
+                handle.ptr,
+                sys::AACENC_PARAM_AACENC_BITRATEMODE,
+                bitrate_mode,
+            ))?;
 
-            check(sys::aacEncoder_SetParam(handle.ptr, sys::AACENC_PARAM_AACENC_SAMPLERATE, params.sample_rate))?;
+            check(sys::aacEncoder_SetParam(
+                handle.ptr,
+                sys::AACENC_PARAM_AACENC_SAMPLERATE,
+                params.sample_rate,
+            ))?;
 
-            check(sys::aacEncoder_SetParam(handle.ptr, sys::AACENC_PARAM_AACENC_TRANSMUX, match params.transport {
-                Transport::Adts => 2,
-                Transport::Raw => 0,
-            }))?;
+            check(sys::aacEncoder_SetParam(
+                handle.ptr,
+                sys::AACENC_PARAM_AACENC_TRANSMUX,
+                match params.transport {
+                    Transport::Adts => 2,
+                    Transport::Raw => 0,
+                },
+            ))?;
 
             // hardcode SBR off for now
-            check(sys::aacEncoder_SetParam(handle.ptr, sys::AACENC_PARAM_AACENC_SBR_MODE, 0))?;
-
+            check(sys::aacEncoder_SetParam(
+                handle.ptr,
+                sys::AACENC_PARAM_AACENC_SBR_MODE,
+                1,
+            ))?;
             check(sys::aacEncoder_SetParam(
                 handle.ptr,
                 sys::AACENC_PARAM_AACENC_CHANNELMODE,
@@ -199,7 +237,13 @@ impl Encoder {
             ))?;
 
             // call encode once with all null params according to docs
-            check(sys::aacEncEncode(handle.ptr, ptr::null(), ptr::null(), ptr::null(), ptr::null_mut()))?;
+            check(sys::aacEncEncode(
+                handle.ptr,
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null_mut(),
+            ))?;
         }
 
         Ok(Encoder { handle })
@@ -245,7 +289,15 @@ impl Encoder {
 
         let mut out_args = unsafe { mem::zeroed() };
 
-        check(unsafe { sys::aacEncEncode(self.handle.ptr, &input_desc, &output_desc, &in_args, &mut out_args) })?;
+        check(unsafe {
+            sys::aacEncEncode(
+                self.handle.ptr,
+                &input_desc,
+                &output_desc,
+                &in_args,
+                &mut out_args,
+            )
+        })?;
 
         Ok(EncodeInfo {
             output_size: out_args.numOutBytes as usize,
